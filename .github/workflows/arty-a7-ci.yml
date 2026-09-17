@@ -1,0 +1,177 @@
+# =============================================================================
+# Simply-V — Arty-A7 CI/CD Workflow
+#
+# Builds the bitstream and software for the Arty-A7 board, then runs a
+# Hardware-in-the-Loop (HIL) test: programs the physical board, loads
+# hello_world via JTAG/GDB, and checks the UART output for the expected
+# string. Simulation is not covered here (not supported on this board).
+#
+# Requires a self-hosted Windows runner (label: arty-a7) with Vivado and
+# a RISC-V toolchain installed, physically connected to the Arty-A7 board.
+# =============================================================================
+
+name: Arty-A7 Build & HIL Test
+
+on:
+  push:
+    branches: [ board/arty-a7 ]
+  pull_request:
+    branches: [ board/arty-a7 ]
+  workflow_dispatch: {}
+
+env:
+  SIMPLYV_PROFILE: embedded
+  BOARD_CONFIG: arty_a7_100t
+  VIVADO_PATH: C:\AMDDesignTools\2025.2\Vivado\bin
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Simulation job (placeholder for future use).
+  #
+  # Simulation is not supported yet for this board/design. This job is kept
+  # here, disabled via `if: false`, so the CI structure already reflects the
+  # intended B x C combinations (multi-platform x simulation/HIL) described
+  # in the methodology. Once `make sim` (or equivalent) is available, remove
+  # the `if: false` condition to enable it.
+  # ---------------------------------------------------------------------------
+  simulate:
+    if: false
+    runs-on: [self-hosted, arty-a7]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Run simulation
+        run: |
+          source settings.sh $SIMPLYV_PROFILE $BOARD_CONFIG
+          make sim
+
+  build:
+    runs-on: [self-hosted, arty-a7]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Add Vivado and tools to PATH
+        run: |
+          echo "$VIVADO_PATH" >> $GITHUB_PATH
+          echo "$HOME/bin" >> $GITHUB_PATH
+
+      - name: Restore cached RTL sources (hw/units/*/rtl)
+        uses: actions/cache@v4
+        with:
+          path: hw/units/*/rtl
+          key: units-rtl-${{ hashFiles('hw/units/*/fetch_sources.sh') }}
+
+      - name: Source environment
+        run: source settings.sh $SIMPLYV_PROFILE $BOARD_CONFIG
+
+      - name: Generate configuration
+        run: |
+          source settings.sh $SIMPLYV_PROFILE $BOARD_CONFIG
+          make config
+
+      - name: Fetch RTL sources (only if cache miss)
+        run: |
+          source settings.sh $SIMPLYV_PROFILE $BOARD_CONFIG
+          cd hw/units
+          make units
+
+      - name: Build Xilinx IPs
+        run: |
+          source settings.sh $SIMPLYV_PROFILE $BOARD_CONFIG
+          cd hw/xilinx
+          make ips
+
+      - name: Build bitstream
+        run: |
+          source settings.sh $SIMPLYV_PROFILE $BOARD_CONFIG
+          cd hw/xilinx
+          make bitstream
+
+      - name: Compile hello_world
+        run: |
+          source settings.sh $SIMPLYV_PROFILE $BOARD_CONFIG
+          cd sw/SoC
+          make examples
+
+      - name: Upload bitstream and ELF as artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-outputs
+          path: |
+            hw/xilinx/build/simplyv.runs/impl_1/simplyv.bit
+            hw/xilinx/build/simplyv.runs/impl_1/simplyv.ltx
+            sw/SoC/examples/hello_world/bin/hello_world.elf
+
+  hil_test:
+    needs: build
+    runs-on: [self-hosted, arty-a7]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Add Vivado and tools to PATH
+        run: |
+          echo "$VIVADO_PATH" >> $GITHUB_PATH
+          echo "$HOME/bin" >> $GITHUB_PATH
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-outputs
+
+      # MANUAL STEP: before running this step, make sure the JTAG interface
+      # driver (Digilent USB Device, Interface 0) is set to the original
+      # Digilent driver (not WinUSB), so Vivado can program the board.
+      - name: Program bitstream
+        run: |
+          source settings.sh $SIMPLYV_PROFILE $BOARD_CONFIG
+          cd hw/xilinx
+          make program_bitstream
+
+      - name: Reset VIO (release core from reset)
+        run: |
+          source settings.sh $SIMPLYV_PROFILE $BOARD_CONFIG
+          vivado -mode batch \
+            -source hw/xilinx/scripts/utils/open_hw_manager.tcl \
+            -source ci/vio_set1.tcl
+
+      # MANUAL STEP: before this step, the JTAG interface driver must be
+      # switched to WinUSB (via Zadig) so OpenOCD can open the device.
+      - name: Start OpenOCD (background)
+        run: |
+          source settings.sh $SIMPLYV_PROFILE $BOARD_CONFIG
+          cd hw/xilinx
+          nohup make openocd_run > /tmp/openocd.log 2>&1 &
+          sleep 5
+          cat /tmp/openocd.log
+
+      - name: Load and run hello_world via GDB
+        run: |
+          source settings.sh $SIMPLYV_PROFILE $BOARD_CONFIG
+          cd hw/xilinx
+          make gdb_run EXAMPLE=hello_world
+
+      - name: Capture UART output and check for "Hello World"
+        shell: pwsh
+        run: |
+          ./ci/check_uart.ps1 -Port COM3 -Baud 9600 -TimeoutSeconds 10 -Expected "Hello World"
+
+      - name: Stop OpenOCD
+        if: always()
+        run: |
+          taskkill //F //IM openocd.exe 2>/dev/null || true
