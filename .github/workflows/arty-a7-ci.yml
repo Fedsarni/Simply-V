@@ -47,7 +47,7 @@ jobs:
 
       - name: Run simulation
         run: |
-          export PATH="/c/AMDDesignTools/2025.2/Vivado/bin:$HOME/bin:$PATH"
+          export PATH="/c/Program Files/Git/usr/bin:/c/Program Files/Git/mingw64/bin:/c/AMDDesignTools/2025.2/Vivado/bin:$HOME/bin:$PATH"
           source settings.sh $SIMPLYV_PROFILE $BOARD_CONFIG
           make sim
 
@@ -70,39 +70,39 @@ jobs:
 
       - name: Source environment
         run: |
-          export PATH="/c/AMDDesignTools/2025.2/Vivado/bin:$HOME/bin:$PATH"
+          export PATH="/c/Program Files/Git/usr/bin:/c/Program Files/Git/mingw64/bin:/c/AMDDesignTools/2025.2/Vivado/bin:$HOME/bin:$PATH"
           source settings.sh $SIMPLYV_PROFILE $BOARD_CONFIG
 
       - name: Generate configuration
         run: |
-          export PATH="/c/AMDDesignTools/2025.2/Vivado/bin:$HOME/bin:$PATH"
+          export PATH="/c/Program Files/Git/usr/bin:/c/Program Files/Git/mingw64/bin:/c/AMDDesignTools/2025.2/Vivado/bin:$HOME/bin:$PATH"
           source settings.sh $SIMPLYV_PROFILE $BOARD_CONFIG
           make config
 
       - name: Fetch RTL sources (only if cache miss)
         run: |
-          export PATH="/c/AMDDesignTools/2025.2/Vivado/bin:$HOME/bin:$PATH"
+          export PATH="/c/Program Files/Git/usr/bin:/c/Program Files/Git/mingw64/bin:/c/AMDDesignTools/2025.2/Vivado/bin:$HOME/bin:$PATH"
           source settings.sh $SIMPLYV_PROFILE $BOARD_CONFIG
           cd hw/units
           make units
 
       - name: Build Xilinx IPs
         run: |
-          export PATH="/c/AMDDesignTools/2025.2/Vivado/bin:$HOME/bin:$PATH"
+          export PATH="/c/Program Files/Git/usr/bin:/c/Program Files/Git/mingw64/bin:/c/AMDDesignTools/2025.2/Vivado/bin:$HOME/bin:$PATH"
           source settings.sh $SIMPLYV_PROFILE $BOARD_CONFIG
           cd hw/xilinx
           make ips
 
       - name: Build bitstream
         run: |
-          export PATH="/c/AMDDesignTools/2025.2/Vivado/bin:$HOME/bin:$PATH"
+          export PATH="/c/Program Files/Git/usr/bin:/c/Program Files/Git/mingw64/bin:/c/AMDDesignTools/2025.2/Vivado/bin:$HOME/bin:$PATH"
           source settings.sh $SIMPLYV_PROFILE $BOARD_CONFIG
           cd hw/xilinx
           make bitstream
 
       - name: Compile hello_world
         run: |
-          export PATH="/c/AMDDesignTools/2025.2/Vivado/bin:$HOME/bin:$PATH"
+          export PATH="/c/Program Files/Git/usr/bin:/c/Program Files/Git/mingw64/bin:/c/AMDDesignTools/2025.2/Vivado/bin:$HOME/bin:$PATH"
           source settings.sh $SIMPLYV_PROFILE $BOARD_CONFIG
           cd sw/SoC
           make examples
@@ -136,14 +136,14 @@ jobs:
       # Digilent driver (not WinUSB), so Vivado can program the board.
       - name: Program bitstream
         run: |
-          export PATH="/c/AMDDesignTools/2025.2/Vivado/bin:$HOME/bin:$PATH"
+          export PATH="/c/Program Files/Git/usr/bin:/c/Program Files/Git/mingw64/bin:/c/AMDDesignTools/2025.2/Vivado/bin:$HOME/bin:$PATH"
           source settings.sh $SIMPLYV_PROFILE $BOARD_CONFIG
           cd hw/xilinx
           make program_bitstream
 
       - name: Reset VIO (release core from reset)
         run: |
-          export PATH="/c/AMDDesignTools/2025.2/Vivado/bin:$HOME/bin:$PATH"
+          export PATH="/c/Program Files/Git/usr/bin:/c/Program Files/Git/mingw64/bin:/c/AMDDesignTools/2025.2/Vivado/bin:$HOME/bin:$PATH"
           source settings.sh $SIMPLYV_PROFILE $BOARD_CONFIG
           vivado -mode batch \
             -source hw/xilinx/scripts/utils/open_hw_manager.tcl \
@@ -153,7 +153,7 @@ jobs:
       # switched to WinUSB (via Zadig) so OpenOCD can open the device.
       - name: Start OpenOCD (background)
         run: |
-          export PATH="/c/AMDDesignTools/2025.2/Vivado/bin:$HOME/bin:$PATH"
+          export PATH="/c/Program Files/Git/usr/bin:/c/Program Files/Git/mingw64/bin:/c/AMDDesignTools/2025.2/Vivado/bin:$HOME/bin:$PATH"
           source settings.sh $SIMPLYV_PROFILE $BOARD_CONFIG
           cd hw/xilinx
           nohup make openocd_run > /tmp/openocd.log 2>&1 &
@@ -162,7 +162,7 @@ jobs:
 
       - name: Load and run hello_world via GDB
         run: |
-          export PATH="/c/AMDDesignTools/2025.2/Vivado/bin:$HOME/bin:$PATH"
+          export PATH="/c/Program Files/Git/usr/bin:/c/Program Files/Git/mingw64/bin:/c/AMDDesignTools/2025.2/Vivado/bin:$HOME/bin:$PATH"
           source settings.sh $SIMPLYV_PROFILE $BOARD_CONFIG
           cd hw/xilinx
           make gdb_run EXAMPLE=hello_world
