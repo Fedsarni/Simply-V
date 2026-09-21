@@ -70,6 +70,13 @@ jobs:
       - name: Skip custom_hls_conv_hbus (not used in embedded profile, requires Vitis HLS)
         run: mkdir -p hw/units/custom_hls_conv_hbus/rtl
 
+      - name: Patch fetch_sources.sh to use installed Bender (0.31.0 fallback has a known bug on Ubuntu 26.04)
+        run: |
+          BENDER_BIN="$(which bender)"
+          for f in hw/units/*/fetch_sources.sh; do
+              sed -i -E "s#curl --proto '=https' --tlsv1\.2 https://pulp-platform\.github\.io/bender/init -sSf[[:space:]]*\|[[:space:]]*sh[[:space:]]+-s -- \\\$\{BENDER_VERSION\}#cp ${BENDER_BIN} ./bender#" "$f" 2>/dev/null || true
+          done
+
       - name: Fetch RTL sources (only if cache miss)
         run: |
           source settings.sh $SIMPLYV_PROFILE $BOARD_CONFIG
