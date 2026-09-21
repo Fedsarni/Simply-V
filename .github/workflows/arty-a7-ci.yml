@@ -67,6 +67,9 @@ jobs:
           source settings.sh $SIMPLYV_PROFILE $BOARD_CONFIG
           make config
 
+      - name: Skip custom_hls_conv_hbus (not used in embedded profile, requires Vitis HLS)
+        run: mkdir -p hw/units/custom_hls_conv_hbus/rtl
+
       - name: Fetch RTL sources (only if cache miss)
         run: |
           source settings.sh $SIMPLYV_PROFILE $BOARD_CONFIG
