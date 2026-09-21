@@ -1,13 +1,18 @@
 # =============================================================================
-# Simply-V — Arty-A7 CI/CD Workflow
+# Simply-V — Arty-A7 CI/CD Workflow (WSL runner)
 #
 # Builds the bitstream and software for the Arty-A7 board, then runs a
 # Hardware-in-the-Loop (HIL) test: programs the physical board, loads
 # hello_world via JTAG/GDB, and checks the UART output for the expected
 # string. Simulation is not covered here (not supported on this board).
 #
-# Requires a self-hosted Windows runner (label: arty-a7) with Vivado and
-# a RISC-V toolchain installed, physically connected to the Arty-A7 board.
+# Requires a self-hosted WSL (Ubuntu) runner (label: arty-a7-wsl) with:
+#   - Bender >= 0.32.1 installed globally (0.31.0 has a bug, see repo notes)
+#   - A `vivado` wrapper script in ~/bin that bridges calls to Windows Vivado
+#     (translates WSL paths/env vars to Windows form; see project notes)
+#   - X: drive mapped via `subst` to the WSL project folder (Windows path
+#     length workaround)
+#   - The Arty-A7 board physically connected, for the hil_test job only
 # =============================================================================
 
 name: Arty-A7 Build & HIL Test
@@ -24,21 +29,9 @@ env:
   BOARD_CONFIG: arty_a7_100t
 
 jobs:
-  # ---------------------------------------------------------------------------
-  # Simulation job (placeholder for future use).
-  #
-  # Simulation is not supported yet for this board/design. This job is kept
-  # here, disabled via `if: false`, so the CI structure already reflects the
-  # intended B x C combinations (multi-platform x simulation/HIL) described
-  # in the methodology. Once `make sim` (or equivalent) is available, remove
-  # the `if: false` condition to enable it.
-  # ---------------------------------------------------------------------------
   simulate:
     if: false
-    runs-on: [self-hosted, arty-a7]
-    defaults:
-      run:
-        shell: 'C:\PROGRA~1\Git\usr\bin\bash.exe --noprofile --norc -eo pipefail "{0}"'
+    runs-on: [self-hosted, arty-a7-wsl]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -47,20 +40,19 @@ jobs:
 
       - name: Run simulation
         run: |
-          export PATH="/c/Program Files/Git/usr/bin:/c/Program Files/Git/mingw64/bin:/c/AMDDesignTools/2025.2/Vivado/bin:$HOME/bin:$PATH"
           source settings.sh $SIMPLYV_PROFILE $BOARD_CONFIG
           make sim
 
   build:
-    runs-on: [self-hosted, arty-a7]
-    defaults:
-      run:
-        shell: 'C:\PROGRA~1\Git\usr\bin\bash.exe --noprofile --norc -eo pipefail "{0}"'
+    runs-on: [self-hosted, arty-a7-wsl]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           submodules: recursive
+
+      - name: Add local tools to PATH
+        run: echo "$HOME/bin" >> $GITHUB_PATH
 
       - name: Restore cached RTL sources (hw/units/*/rtl)
         uses: actions/cache@v4
@@ -68,41 +60,41 @@ jobs:
           path: hw/units/*/rtl
           key: units-rtl-${{ hashFiles('hw/units/*/fetch_sources.sh') }}
 
-      - name: Source environment
-        run: |
-          export PATH="/c/Program Files/Git/usr/bin:/c/Program Files/Git/mingw64/bin:/c/AMDDesignTools/2025.2/Vivado/bin:$HOME/bin:$PATH"
-          source settings.sh $SIMPLYV_PROFILE $BOARD_CONFIG
-
       - name: Generate configuration
         run: |
-          export PATH="/c/Program Files/Git/usr/bin:/c/Program Files/Git/mingw64/bin:/c/AMDDesignTools/2025.2/Vivado/bin:$HOME/bin:$PATH"
           source settings.sh $SIMPLYV_PROFILE $BOARD_CONFIG
           make config
 
       - name: Fetch RTL sources (only if cache miss)
         run: |
-          export PATH="/c/Program Files/Git/usr/bin:/c/Program Files/Git/mingw64/bin:/c/AMDDesignTools/2025.2/Vivado/bin:$HOME/bin:$PATH"
           source settings.sh $SIMPLYV_PROFILE $BOARD_CONFIG
           cd hw/units
-          make units
+          make -j1 units
+
+      - name: Resolve symlinks (Windows/Vivado bridge cannot follow them)
+        run: |
+          find . -type l | while read -r link; do
+              target=$(readlink -f "$link")
+              if [ -f "$target" ]; then
+                  rm "$link"
+                  cp "$target" "$link"
+              fi
+          done
 
       - name: Build Xilinx IPs
         run: |
-          export PATH="/c/Program Files/Git/usr/bin:/c/Program Files/Git/mingw64/bin:/c/AMDDesignTools/2025.2/Vivado/bin:$HOME/bin:$PATH"
           source settings.sh $SIMPLYV_PROFILE $BOARD_CONFIG
           cd hw/xilinx
           make ips
 
       - name: Build bitstream
         run: |
-          export PATH="/c/Program Files/Git/usr/bin:/c/Program Files/Git/mingw64/bin:/c/AMDDesignTools/2025.2/Vivado/bin:$HOME/bin:$PATH"
           source settings.sh $SIMPLYV_PROFILE $BOARD_CONFIG
           cd hw/xilinx
           make bitstream
 
       - name: Compile hello_world
         run: |
-          export PATH="/c/Program Files/Git/usr/bin:/c/Program Files/Git/mingw64/bin:/c/AMDDesignTools/2025.2/Vivado/bin:$HOME/bin:$PATH"
           source settings.sh $SIMPLYV_PROFILE $BOARD_CONFIG
           cd sw/SoC
           make examples
@@ -118,42 +110,34 @@ jobs:
 
   hil_test:
     needs: build
-    runs-on: [self-hosted, arty-a7]
-    defaults:
-      run:
-        shell: 'C:\PROGRA~1\Git\usr\bin\bash.exe --noprofile --norc -eo pipefail "{0}"'
+    runs-on: [self-hosted, arty-a7-wsl]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Add local tools to PATH
+        run: echo "$HOME/bin" >> $GITHUB_PATH
 
       - name: Download build artifacts
         uses: actions/download-artifact@v4
         with:
           name: build-outputs
 
-      # MANUAL STEP: before running this step, make sure the JTAG interface
-      # driver (Digilent USB Device, Interface 0) is set to the original
-      # Digilent driver (not WinUSB), so Vivado can program the board.
       - name: Program bitstream
         run: |
-          export PATH="/c/Program Files/Git/usr/bin:/c/Program Files/Git/mingw64/bin:/c/AMDDesignTools/2025.2/Vivado/bin:$HOME/bin:$PATH"
           source settings.sh $SIMPLYV_PROFILE $BOARD_CONFIG
           cd hw/xilinx
           make program_bitstream
 
       - name: Reset VIO (release core from reset)
         run: |
-          export PATH="/c/Program Files/Git/usr/bin:/c/Program Files/Git/mingw64/bin:/c/AMDDesignTools/2025.2/Vivado/bin:$HOME/bin:$PATH"
           source settings.sh $SIMPLYV_PROFILE $BOARD_CONFIG
           vivado -mode batch \
             -source hw/xilinx/scripts/utils/open_hw_manager.tcl \
             -source ci/vio_set1.tcl
 
-      # MANUAL STEP: before this step, the JTAG interface driver must be
-      # switched to WinUSB (via Zadig) so OpenOCD can open the device.
       - name: Start OpenOCD (background)
         run: |
-          export PATH="/c/Program Files/Git/usr/bin:/c/Program Files/Git/mingw64/bin:/c/AMDDesignTools/2025.2/Vivado/bin:$HOME/bin:$PATH"
           source settings.sh $SIMPLYV_PROFILE $BOARD_CONFIG
           cd hw/xilinx
           nohup make openocd_run > /tmp/openocd.log 2>&1 &
@@ -162,7 +146,6 @@ jobs:
 
       - name: Load and run hello_world via GDB
         run: |
-          export PATH="/c/Program Files/Git/usr/bin:/c/Program Files/Git/mingw64/bin:/c/AMDDesignTools/2025.2/Vivado/bin:$HOME/bin:$PATH"
           source settings.sh $SIMPLYV_PROFILE $BOARD_CONFIG
           cd hw/xilinx
           make gdb_run EXAMPLE=hello_world
@@ -174,5 +157,4 @@ jobs:
 
       - name: Stop OpenOCD
         if: always()
-        run: |
-          taskkill //F //IM openocd.exe 2>/dev/null || true
+        run: pkill -f openocd || true
