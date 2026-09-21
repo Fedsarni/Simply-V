@@ -78,13 +78,16 @@ jobs:
 
       - name: Resolve symlinks (Windows/Vivado bridge cannot follow them)
         run: |
+          set +e
           while read -r link; do
-              target=$(readlink -f "$link")
-              if [ -f "$target" ]; then
-                  rm "$link"
+              target=$(readlink -f "$link" 2>/dev/null)
+              if [ -n "$target" ] && [ -f "$target" ]; then
+                  rm -f "$link"
                   cp "$target" "$link"
               fi
-          done < <(find . -type l)
+          done < <(find . -type l 2>/dev/null)
+          set -e
+          exit 0
 
       - name: Build Xilinx IPs
         run: |
