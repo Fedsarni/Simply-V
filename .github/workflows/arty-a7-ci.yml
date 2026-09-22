@@ -96,6 +96,16 @@ jobs:
           set -e
           exit 0
 
+      - name: Restore cached built Xilinx IPs (avoids re-synthesizing all 34 IPs every run)
+        uses: actions/cache@v4
+        with:
+          path: |
+            hw/xilinx/ips/*.xci
+            hw/xilinx/ips/common/*/build
+            hw/xilinx/ips/embedded/*/build
+            hw/xilinx/ips/hpc/*/build
+          key: xilinx-ips-${{ hashFiles('hw/xilinx/ips/common/*/config.tcl', 'hw/xilinx/ips/embedded/*/config.tcl', 'hw/xilinx/ips/hpc/*/config.tcl', 'hw/units/*/fetch_sources.sh', 'hw/xilinx/synth/constraints/*.xdc') }}
+
       - name: Build Xilinx IPs
         run: |
           source settings.sh $SIMPLYV_PROFILE $BOARD_CONFIG
