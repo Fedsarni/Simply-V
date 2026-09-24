@@ -93,6 +93,12 @@ else # Default
         export XILINX_BOARD_PART=digilentinc.com:nexys-a7-50t:part0:1.3
         export XILINX_HW_DEVICE=xc7a50t_0
         export BOARD=Nexys-A7-50T-Master
+    elif [[ ${BOARD_CONFIG} == "pynq_z1" ]]; then
+        # Pynq-Z1
+        export XILINX_PART_NUMBER=xc7z020clg400-1
+        export XILINX_BOARD_PART=www.digilentinc.com:pynq-z1:part0:1.0
+        export XILINX_HW_DEVICE=xc7z020_0
+        export BOARD=Pynq-Z1-Master
     else # Default
         # Nexsys A7-100T
         export XILINX_PART_NUMBER=xc7a100tcsg324-1
