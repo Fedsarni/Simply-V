@@ -35,6 +35,15 @@ CURDIR="$(pwd)"
 RELPATH="${CURDIR#$PROJROOT}"
 WINPATH_BS="${WIN_DRIVE}${RELPATH//\//\\}"
 
+# Ensure the drive mapping exists before every call — `subst` is not
+# persistent across reboots, and a stale/missing mapping causes cryptic
+# "The system cannot find the drive specified" errors from cmd.exe.
+PROJROOT_UNC="$(wslpath -w "$PROJROOT")"
+SUBST_BAT="$(mktemp --suffix=.bat)"
+echo "subst ${WIN_DRIVE} \"${PROJROOT_UNC}\"" > "$SUBST_BAT"
+cmd.exe /c "$(wslpath -w "$SUBST_BAT")" >/dev/null 2>&1
+rm -f "$SUBST_BAT"
+
 # Translate every path-like env var rooted at the project directory, so
 # Vivado (reading these via $::env(...) in Tcl) sees Windows-style paths
 # instead of Linux ones it cannot resolve.
