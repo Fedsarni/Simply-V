@@ -73,6 +73,7 @@ if [ -n "$IP_LIST_XCI" ]; then
 fi
 
 # Forward every current environment variable across the WSL/Windows boundary.
+if [ -z "$XILINX_FPGA_DEVICE" ]; then export XILINX_FPGA_DEVICE="*"; fi  # WSLENV drops empty variables; the Tcl scripts expect it to be defined
 export WSLENV=$(printenv | grep -v '^_=' | cut -d= -f1 | tr '\n' ':' | sed 's/:$//')
 
 # Translate any remaining path-like command-line arguments (e.g. -source
