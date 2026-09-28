@@ -228,3 +228,29 @@ openocd -f scripts/load_binary/openocd.cfg
 # and in another:
 make gdb_run EXAMPLE=hello_world
 ```
+
+## 8. Running the HIL test (board connected to the runner machine)
+
+`ci/hil_hello_world_wsl.sh` programs the board, releases the core from reset,
+attaches the USB device to WSL, runs hello_world through OpenOCD/GDB and
+checks the UART. The CI `hil_test` job simply calls it, and it can be run by
+hand from the repository root (after `source settings.sh ...`, `make config`
+and with the bitstream and `hello_world.elf` already built):
+
+```bash
+bash ci/hil_hello_world_wsl.sh        # optional argument: usbipd BUSID, default 1-4
+```
+
+Prerequisites on the machine that runs it:
+
+- **usbipd-win** installed, with the right BUSID (`usbipd list`).
+  `usbipd bind` / `unbind` need an **elevated** session. The script calls
+  them, but from a non-elevated runner they fail: in that case bind the
+  device by hand once (`usbipd bind --busid 1-4`, elevated PowerShell) and
+  unbind it by hand before using Vivado again.
+- **xPack OpenOCD** first in `PATH` (section 3). The script refuses to run
+  with the Ubuntu package.
+- **Serial port access without sudo**: `sudo usermod -aG dialout $USER`, then
+  `wsl --shutdown` from PowerShell and restart WSL (and the runner).
+- The board must not be attached to WSL when Vivado programs it: the script
+  detaches it first, and again in its cleanup step.
