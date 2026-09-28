@@ -97,7 +97,7 @@ else # Default
         # Pynq-Z1
         export XILINX_PART_NUMBER=xc7z020clg400-1
         export XILINX_BOARD_PART=www.digilentinc.com:pynq-z1:part0:1.0
-        export XILINX_HW_DEVICE=xc7z020_0
+        export XILINX_HW_DEVICE=xc7z020_1
         export BOARD=Pynq-Z1-Master
     else # Default
         # Nexsys A7-100T
