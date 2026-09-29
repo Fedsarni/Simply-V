@@ -50,6 +50,12 @@ usbipd.exe unbind --busid "$BUSID" >/dev/null 2>&1
 ( cd hw/xilinx && make program_bitstream ) || fail "make program_bitstream"
 
 echo "[HIL] 2/6 Release the core from reset (VIO)"
+# `make program_bitstream` only sets these for its own internal call to
+# Vivado (as make command-line variables); they are not exported to this
+# shell, so calling `vivado` directly here needs them set explicitly.
+export XILINX_BITSTREAM="$(pwd)/hw/xilinx/build/simplyv.runs/impl_1/simplyv.bit"
+export XILINX_PROBE_LTX="$(pwd)/hw/xilinx/build/simplyv.runs/impl_1/simplyv.ltx"
+export XILINX_FPGA_DEVICE="*"
 vivado -mode batch \
     -source hw/xilinx/scripts/utils/open_hw_manager.tcl \
     -source ci/vio_set1.tcl 2>&1 | tee "$VIO_LOG" | tail -3
