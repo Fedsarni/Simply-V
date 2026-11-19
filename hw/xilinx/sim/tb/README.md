@@ -10,7 +10,7 @@ The AXI VIP is the AXI4-Lite master and plays both the host and the runtime.
 | `tb_csr_uc3` | UC3 Stuck program |
 | `tb_csr_uc4` | UC4 Illegal command |
 | `tb_csr_uc5` | UC5 Recovery from ERROR |
-| `tb_csr_fsm` | Every state x every command, runtime writes to STATUS, registers, SLVERR |
+| `tb_csr_fsm` | Every state x every command, runtime writes to RT_STATUS, registers, SLVERR |
 
 `tb_csr_common.svh` holds the AXI VIP, the DUT and the common tasks.
 

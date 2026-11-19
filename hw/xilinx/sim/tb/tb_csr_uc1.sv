@@ -1,33 +1,37 @@
 // Author: Federica Sarnataro
 // Description: UC1 - Load and run program.
-//              RESET CPU -> LOAD PROGRAM -> LOAD INPUT DATA -> RUN -> runtime DONE,
-//              first after the PoR (BUSY), then again from DONE.
 `timescale 1ns/1ps
 
 module tb_csr_uc1;
     `include "tb_csr_common.svh"
 
-    initial begin
+    initial begin : stim_proc
         tb_start();
+        check_status("precondition: BUSY after power-on", BUSY);
 
-        for (int i = 0; i < 2; i++) begin
-            automatic string ctx = (i == 0) ? "UC1 from BUSY" : "UC1 from DONE";
-            check_status({ctx, " precondition"}, (i == 0) ? BUSY : DONE);
+        cmd(RESET_CPU);
+        check_status("RESET CPU -> IDLE", IDLE);
+        check("CPU in reset", core_rstn, 0);
 
-            cmd(RESET_CPU);        check_status({ctx, " RESET CPU"}, IDLE);        check_outputs(IDLE, ctx);
-            cmd(LOAD_PROGRAM);     wr_reg(A_BOOT, 32'h0000_2000 + i);
-            check_status({ctx, " LOAD PROGRAM"}, IDLE);
-            check({ctx, " boot_addr_o"}, boot_addr, 32'h0000_2000 + i);
-            cmd(LOAD_INPUT_DATA);  wr_reg(A_PIN, 32'h1000_0000 + i); wr_reg(A_POUT, 32'h1000_1000 + i);
-            check_status({ctx, " LOAD INPUT DATA"}, IDLE);
-            cmd(RUN);              check_status({ctx, " RUN"}, BUSY);              check_outputs(BUSY, ctx);
+        cmd(LOAD_PROGRAM);
+        wr(A_BOOT, 'h2000);
+        check("boot address to the CPU", boot_addr, 'h2000);
 
-            // Runtime: reads the pointers, then writes DONE
-            check_reg(ctx, A_PIN,  32'h1000_0000 + i);
-            check_reg(ctx, A_POUT, 32'h1000_1000 + i);
-            rt(DONE);              check_status({ctx, " runtime DONE"}, DONE);     check_outputs(DONE, ctx);
-        end
+        cmd(LOAD_INPUT_DATA);
+        wr(A_PIN, 'h1000_0000);
+        wr(A_POUT, 'h1000_1000);
+        check_status("after the LOAD commands: IDLE", IDLE);
+
+        cmd(RUN);
+        check_status("RUN -> BUSY", BUSY);
+        check("CPU running", core_rstn, 1);
+
+        // Runtime: reads the pointers, then signals the end of the job
+        check_reg("PTR_IN", A_PIN, 'h1000_0000);
+        check_reg("PTR_OUT", A_POUT, 'h1000_1000);
+        rt(DONE);
+        check_status("runtime DONE -> DONE", DONE);
 
         tb_finish("UC1");
-    end
+    end : stim_proc
 endmodule

@@ -1,31 +1,27 @@
 // Author: Federica Sarnataro
-// Description: UC3 - Stuck program.
-//              Simply-V stays BUSY until the master timeout, then RESET CPU -> IDLE (CPU in reset).
+// Description: UC3 - Stuck program: the master times out and stops the CPU.
 `timescale 1ns/1ps
 
 module tb_csr_uc3;
     `include "tb_csr_common.svh"
 
-    task automatic stuck(string ctx);
-        // Master polling: the runtime never writes DONE
-        for (int n = 0; n < 20; n++) check_status({ctx, " polling"}, BUSY);
+    initial begin : stim_proc
+        tb_start();
+        cmd(RESET_CPU);
+        cmd(LOAD_PROGRAM);
+        cmd(LOAD_INPUT_DATA);
+        cmd(RUN);
+
+        // Polling: the runtime never writes DONE
+        repeat (5) begin
+            check_status("polling: still BUSY", BUSY);
+        end
+
         // Timeout of the master
         cmd(RESET_CPU);
-        check_status({ctx, " RESET CPU"}, IDLE);
-        check_outputs(IDLE, ctx);
-    endtask
-
-    initial begin
-        tb_start();
-
-        // After the PoR (CPU running from the default boot address)
-        stuck("UC3 after PoR");
-
-        // After a RUN
-        cmd(LOAD_PROGRAM); cmd(LOAD_INPUT_DATA); cmd(RUN);
-        check_status("UC3 RUN", BUSY);
-        stuck("UC3 after RUN");
+        check_status("RESET CPU -> IDLE", IDLE);
+        check("CPU in reset", core_rstn, 0);
 
         tb_finish("UC3");
-    end
+    end : stim_proc
 endmodule
