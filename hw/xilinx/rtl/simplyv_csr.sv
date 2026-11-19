@@ -5,11 +5,12 @@
 //
 // Register map:
 //   0x00 COMMAND    W   master   command to execute (reads as 0)
-//   0x04 STATUS     RW           state of Simply-V. Read by everyone; written only by the runtime
-//                                (DONE or ERROR, accepted only in BUSY, any other write is ignored)
+//   0x04 STATUS     R            state of Simply-V (a write answers SLVERR and is ignored)
 //   0x08 BOOT_ADDR  RW  master   boot address of the CPU
 //   0x0C PTR_IN     RW  master   pointer to the input data
 //   0x10 PTR_OUT    RW  master   pointer to the output data
+//   0x14 RT_STATUS  W   runtime  new state written by the runtime (reads as 0):
+//                                DONE or ERROR, accepted only in BUSY, any other value is ignored
 // Offsets are decoded on addr[7:0]: other offsets answer SLVERR. Write strobes are not used.
 
 // Import headers
@@ -45,6 +46,7 @@ module simplyv_csr #(
     localparam logic [7:0] OFF_BOOT_ADDR = 8'h08;
     localparam logic [7:0] OFF_PTR_IN    = 8'h0C;
     localparam logic [7:0] OFF_PTR_OUT   = 8'h10;
+    localparam logic [7:0] OFF_RT_STATUS = 8'h14;
 
     // AXI responses
     localparam logic [1:0] RESP_OKAY   = 2'b00;
@@ -96,15 +98,16 @@ module simplyv_csr #(
     assign woffset  = s_axilite_awaddr[7:0];
     assign roffset  = s_axilite_araddr[7:0];
     assign wdata    = s_axilite_wdata;
-    assign waddr_ok = (woffset inside {OFF_COMMAND, OFF_STATUS, OFF_BOOT_ADDR, OFF_PTR_IN, OFF_PTR_OUT});
-    assign raddr_ok = (roffset inside {OFF_COMMAND, OFF_STATUS, OFF_BOOT_ADDR, OFF_PTR_IN, OFF_PTR_OUT});
+    // STATUS is read-only: a write to it answers SLVERR
+    assign waddr_ok = (woffset inside {OFF_COMMAND, OFF_BOOT_ADDR, OFF_PTR_IN, OFF_PTR_OUT, OFF_RT_STATUS});
+    assign raddr_ok = (roffset inside {OFF_COMMAND, OFF_STATUS, OFF_BOOT_ADDR, OFF_PTR_IN, OFF_PTR_OUT, OFF_RT_STATUS});
 
     logic cmd_valid;    // master wrote COMMAND
-    logic status_wr;    // runtime wrote STATUS
+    logic status_wr;    // runtime wrote RT_STATUS
     logic reset_all;    // RESET ALL in this cycle
 
     assign cmd_valid = wr & (woffset == OFF_COMMAND);
-    assign status_wr = wr & (woffset == OFF_STATUS);
+    assign status_wr = wr & (woffset == OFF_RT_STATUS);
     assign reset_all = cmd_valid & (wdata == CMD_RESET_ALL);
 
     ////////////////////
@@ -212,7 +215,7 @@ module simplyv_csr #(
                     OFF_BOOT_ADDR: s_axilite_rdata <= boot_addr_q;
                     OFF_PTR_IN:    s_axilite_rdata <= ptr_in_q;
                     OFF_PTR_OUT:   s_axilite_rdata <= ptr_out_q;
-                    default:       s_axilite_rdata <= '0; // COMMAND reads as 0
+                    default:       s_axilite_rdata <= '0; // COMMAND and RT_STATUS read as 0
                 endcase
             end else if (s_axilite_rready) begin
                 s_axilite_rvalid <= 1'b0;
