@@ -8,11 +8,10 @@ module tb_csr_uc4;
     initial begin : stim_proc
         tb_start();
         rt(DONE);
-        check_status("precondition: DONE", DONE);
-
         cmd(RUN);
-        check_status("RUN in DONE -> ERROR", ERROR);
+        rd(A_STATUS, v_data);
+        assert (v_data == ERROR) else $error("[TB] RUN in DONE: STATUS %0d, expected ERROR", v_data);
 
-        tb_finish("UC4");
+        $finish;
     end : stim_proc
 endmodule

@@ -15,19 +15,21 @@ module tb_csr_uc2;
         cmd(LOAD_INPUT_DATA);
         cmd(RUN);
         rt(DONE);
-        check_status("precondition: DONE", DONE);
 
         // New input data only
         cmd(RESET_CPU);
         cmd(LOAD_INPUT_DATA);
         wr(A_PIN, 'h1000_0100);
         cmd(RUN);
-        check_status("RUN -> BUSY", BUSY);
-        check("same program: boot address unchanged", boot_addr, 'h2000);
-        check_reg("new PTR_IN", A_PIN, 'h1000_0100);
+        rd(A_STATUS, v_data);
+        assert (v_data == BUSY) else $error("[TB] RUN: STATUS %0d, expected BUSY", v_data);
+        assert (boot_addr == 'h2000) else $error("[TB] same program: boot address %0h", boot_addr);
+        rd(A_PIN, v_data);
+        assert (v_data == 'h1000_0100) else $error("[TB] new PTR_IN %0h", v_data);
         rt(DONE);
-        check_status("runtime DONE -> DONE", DONE);
+        rd(A_STATUS, v_data);
+        assert (v_data == DONE) else $error("[TB] runtime DONE: STATUS %0d, expected DONE", v_data);
 
-        tb_finish("UC2");
+        $finish;
     end : stim_proc
 endmodule

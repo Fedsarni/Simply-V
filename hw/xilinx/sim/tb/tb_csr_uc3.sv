@@ -14,14 +14,16 @@ module tb_csr_uc3;
 
         // Polling: the runtime never writes DONE
         repeat (5) begin
-            check_status("polling: still BUSY", BUSY);
+            rd(A_STATUS, v_data);
+            assert (v_data == BUSY) else $error("[TB] polling: STATUS %0d, expected BUSY", v_data);
         end
 
         // Timeout of the master
         cmd(RESET_CPU);
-        check_status("RESET CPU -> IDLE", IDLE);
-        check("CPU in reset", core_rstn, 0);
+        rd(A_STATUS, v_data);
+        assert (v_data == IDLE) else $error("[TB] RESET CPU: STATUS %0d, expected IDLE", v_data);
+        assert (core_rstn == 1'b0) else $error("[TB] RESET CPU: CPU not in reset");
 
-        tb_finish("UC3");
+        $finish;
     end : stim_proc
 endmodule

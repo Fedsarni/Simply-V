@@ -1,6 +1,7 @@
 // Author: Federica Sarnataro
 // Description: Common part of the simplyv_csr testbenches, included inside each tb_csr_* module:
-//              AXI VIP (AXI4-Lite master) -> simplyv_csr, clock, reset and the tasks used by the tests.
+//              AXI VIP (AXI4-Lite master) -> simplyv_csr, clock, reset and the AXI accesses used by the tests.
+//              The tests check the DUT with assert, as in the RTL guide; an error is reported with $error.
 
 import axi_vip_pkg::*;
 import axi_vip_mst_pkg::*;
@@ -70,6 +71,10 @@ logic        core_clk_en;
 logic        sys_rst;
 logic [31:0] boot_addr;
 
+// Last value read by a test
+logic [31:0] v_data;
+logic [1:0]  v_resp;
+
 // AXI VIP, AXI4-Lite master
 axi_vip_mst vip_u (
     .aclk          ( clk     ),
@@ -127,19 +132,6 @@ simplyv_csr #(
     .s_axilite_rready  ( rready      )
 );
 
-// Check: count the checks, assert on every value
-int v_checks = 0;
-int v_errors = 0;
-
-task automatic check(string what, longint got, longint exp);
-    v_checks = v_checks + 1;
-    assert (got === exp)
-    else begin
-        v_errors = v_errors + 1;
-        $error("[TB] FAIL %s: got %0h, expected %0h", what, got, exp);
-    end
-endtask
-
 // AXI accesses through the VIP
 axi_vip_mst_mst_t mst;
 
@@ -157,19 +149,17 @@ task automatic axi_rd(logic [31:0] addr, output logic [31:0] data, output logic 
     resp = v_resp;
 endtask
 
-// Write a register (expected answer OKAY)
+// Register write and read: the CSR must answer OKAY
 task automatic wr(logic [31:0] addr, logic [31:0] data);
     logic [1:0] v_resp;
     axi_wr(addr, data, v_resp);
-    check($sformatf("write %0h response", addr), v_resp, OKAY);
+    assert (v_resp == OKAY) else $error("[TB] write %0h: response %0b, expected OKAY", addr, v_resp);
 endtask
 
-// Read a register and compare it with the expected value
-task automatic check_reg(string what, logic [31:0] addr, logic [31:0] exp);
-    logic [31:0] v_data;
-    logic [1:0]  v_resp;
-    axi_rd(addr, v_data, v_resp);
-    check(what, v_data, exp);
+task automatic rd(logic [31:0] addr, output logic [31:0] data);
+    logic [1:0] v_resp;
+    axi_rd(addr, data, v_resp);
+    assert (v_resp == OKAY) else $error("[TB] read %0h: response %0b, expected OKAY", addr, v_resp);
 endtask
 
 // Master command
@@ -182,11 +172,6 @@ task automatic rt(int s);
     wr(A_RT, s);
 endtask
 
-// STATUS check
-task automatic check_status(string what, int s);
-    check_reg(what, A_STATUS, s);
-endtask
-
 // RESET ALL pulse: measured at every rising edge, the CPU must stay in reset during it
 int v_cnt       = 0;
 int v_pulse_len = 0;
@@ -194,9 +179,7 @@ int v_pulse_len = 0;
 always @(posedge clk) begin : pulse_proc
     if (sys_rst) begin
         v_cnt <= v_cnt + 1;
-        if (core_rstn !== 1'b0) begin
-            check("CPU in reset during RESET ALL", core_rstn, 0);
-        end
+        assert (core_rstn == 1'b0) else $error("[TB] CPU not in reset during RESET ALL");
     end else if (v_cnt != 0) begin
         v_pulse_len <= v_cnt;
         v_cnt       <= 0;
@@ -207,7 +190,7 @@ end : pulse_proc
 task automatic wait_pulse();
     wait (sys_rst == 1'b0);
     repeat (2) @(posedge clk);
-    check("RESET ALL pulse length", v_pulse_len, SYS_RST_CYCLES);
+    assert (v_pulse_len == SYS_RST_CYCLES) else $error("[TB] RESET ALL pulse: %0d cycles, expected %0d", v_pulse_len, SYS_RST_CYCLES);
 endtask
 
 // Expected next state after a command (table 6.1)
@@ -244,10 +227,4 @@ task automatic tb_start();
     repeat (RST_CYCLES) @(posedge clk);
     rst_n <= 1'b1;
     @(posedge clk);
-endtask
-
-// End of the test
-task automatic tb_finish(string name);
-    $display("RESULT %s: %0d checks, %0d errors -> %s", name, v_checks, v_errors, (v_errors == 0) ? "PASS" : "FAIL");
-    $finish;
 endtask

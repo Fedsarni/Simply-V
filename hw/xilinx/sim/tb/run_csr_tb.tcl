@@ -4,6 +4,7 @@
 #   vivado -mode batch -source <abs path>/hw/xilinx/sim/tb/run_csr_tb.tcl                        (all the testbenches)
 #   vivado -mode batch -source <abs path>/hw/xilinx/sim/tb/run_csr_tb.tcl -tclargs tb_csr_uc1     (only some)
 # The project is created in hw/xilinx/sim/tb/build. Exit code 1 if a testbench fails.
+# A testbench passes if it reaches $finish and no assertion fails.
 
 set tb_dir      [file dirname [file normalize [info script]]]
 set xilinx_root [file normalize ${tb_dir}/../..]
@@ -39,23 +40,33 @@ generate_target all [get_ips axi_vip_mst]
 add_files -fileset sim_1 -norecurse [glob ${tb_dir}/tb_csr_*.sv]
 set_property -name {xsim.simulate.runtime} -value {all} -objects [get_filesets sim_1]
 
-# Run each testbench and collect the RESULT line
+# Run each testbench: PASS if it reaches $finish without errors in the log
 set results {}
 set failed 0
 foreach tb ${tbs} {
     set_property top ${tb} [get_filesets sim_1]
-    set result "RESULT ${tb}: no result -> FAIL"
-    if {[catch {launch_simulation} msg]} {
-        set result "RESULT ${tb}: simulation error -> FAIL"
-    } else {
+    set result "RESULT ${tb}: simulation error -> FAIL"
+    if {![catch {launch_simulation} msg]} {
         set log ${tb_dir}/build/csr_tb.sim/sim_1/behav/xsim/simulate.log
+        set errors   0
+        set finished 0
         set f [open ${log} r]
         foreach line [split [read ${f}] "\n"] {
-            if {[regexp {FAIL|^RESULT|^ERROR|Fatal} ${line}]} { puts "${tb}> ${line}" }
-            if {[regexp {^RESULT} ${line}]} { set result ${line} }
+            if {[regexp {^Error:|\[TB\]|^ERROR|Fatal} ${line}]} {
+                puts "${tb}> ${line}"
+                incr errors
+            }
+            if {[regexp {\$finish called} ${line}]} {
+                set finished 1
+            }
         }
         close ${f}
         close_sim -force
+        if {!${finished}} {
+            set result "RESULT ${tb}: \$finish not reached -> FAIL"
+        } else {
+            set result "RESULT ${tb}: ${errors} errors -> [expr {${errors} == 0 ? "PASS" : "FAIL"}]"
+        }
     }
     if {![regexp { -> PASS$} ${result}]} { set failed 1 }
     lappend results ${result}

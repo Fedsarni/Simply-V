@@ -10,10 +10,7 @@ module tb_csr_fsm;
     int v_states[5]   = '{IDLE, BUSY, DONE, ERROR, HALTED};
     int v_commands[8] = '{0, RESET_CPU, LOAD_PROGRAM, LOAD_INPUT_DATA, RUN, RESET_ALL, HALT, 7};
     int v_events[3]   = '{DONE, ERROR, 7};
-
-    logic [31:0] v_data;
-    logic [1:0]  v_resp;
-    int          v_exp;
+    int v_exp;
 
     initial begin : stim_proc
         tb_start();
@@ -27,7 +24,8 @@ module tb_csr_fsm;
                     wait_pulse();
                 end
                 v_exp = expected(v_states[s], v_commands[c]);
-                check_status($sformatf("state %0d, command %0d", v_states[s], v_commands[c]), v_exp);
+                rd(A_STATUS, v_data);
+                assert (v_data == v_exp) else $error("[TB] state %0d, command %0d: STATUS %0d, expected %0d", v_states[s], v_commands[c], v_data, v_exp);
             end : cmd_loop
         end : state_cmd_loop
 
@@ -37,36 +35,42 @@ module tb_csr_fsm;
                 go_to(v_states[s]);
                 rt(v_events[e]);
                 v_exp = (v_states[s] == BUSY && v_events[e] != 7) ? v_events[e] : v_states[s];
-                check_status($sformatf("state %0d, RT_STATUS %0d", v_states[s], v_events[e]), v_exp);
+                rd(A_STATUS, v_data);
+                assert (v_data == v_exp) else $error("[TB] state %0d, RT_STATUS %0d: STATUS %0d, expected %0d", v_states[s], v_events[e], v_data, v_exp);
             end : event_loop
         end : state_event_loop
 
         // 3. Outputs: CPU in reset only in IDLE, clock stopped only in HALT
         go_to(IDLE);
-        check("IDLE: CPU in reset", core_rstn, 0);
+        assert (core_rstn == 1'b0) else $error("[TB] IDLE: CPU not in reset");
         go_to(HALTED);
-        check("HALT: CPU clock stopped", core_clk_en, 0);
+        assert (core_clk_en == 1'b0) else $error("[TB] HALT: CPU clock not stopped");
 
         // 4. Registers
         wr(A_BOOT, 'hDEAD_BEE0);
-        check_reg("BOOT_ADDR read back", A_BOOT, 'hDEAD_BEE0);
-        check("boot address to the CPU", boot_addr, 'hDEAD_BEE0);
-        check_reg("COMMAND reads 0", A_CMD, 0);
-        check_reg("RT_STATUS reads 0", A_RT, 0);
+        rd(A_BOOT, v_data);
+        assert (v_data == 'hDEAD_BEE0) else $error("[TB] BOOT_ADDR read back %0h", v_data);
+        assert (boot_addr == 'hDEAD_BEE0) else $error("[TB] boot address to the CPU %0h", boot_addr);
+        rd(A_CMD, v_data);
+        assert (v_data == 0) else $error("[TB] COMMAND reads %0h, expected 0", v_data);
+        rd(A_RT, v_data);
+        assert (v_data == 0) else $error("[TB] RT_STATUS reads %0h, expected 0", v_data);
 
         // 5. SLVERR: write to STATUS (read-only) and offsets that do not exist
         go_to(BUSY);
         axi_wr(A_STATUS, DONE, v_resp);
-        check("write to STATUS -> SLVERR", v_resp, SLVERR);
-        check_status("write to STATUS ignored", BUSY);
+        assert (v_resp == SLVERR) else $error("[TB] write to STATUS: response %0b, expected SLVERR", v_resp);
+        rd(A_STATUS, v_data);
+        assert (v_data == BUSY) else $error("[TB] write to STATUS not ignored: STATUS %0d", v_data);
         axi_rd('h18, v_data, v_resp);
-        check("read 0x18 -> SLVERR", v_resp, SLVERR);
+        assert (v_resp == SLVERR) else $error("[TB] read 0x18: response %0b, expected SLVERR", v_resp);
 
         // 6. Full command word: 0x104 is not RUN
         go_to(IDLE);
         cmd('h104);
-        check_status("command 0x104 -> ERROR", ERROR);
+        rd(A_STATUS, v_data);
+        assert (v_data == ERROR) else $error("[TB] command 0x104: STATUS %0d, expected ERROR", v_data);
 
-        tb_finish("FSM");
+        $finish;
     end : stim_proc
 endmodule
