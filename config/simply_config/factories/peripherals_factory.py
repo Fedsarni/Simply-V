@@ -19,6 +19,7 @@ from peripherals.plic import PLIC
 from peripherals.clint import CLINT
 from peripherals.cdma import CDMA
 from peripherals.psddr import PSDDR
+from peripherals.csr import CSR
 from general.addr_range import Addr_Ranges
 from general.error import Unsupported_Value_Error, Conflict_Error
 
@@ -46,6 +47,7 @@ class Peripherals_Factory(Factory):
 			"CLINT":      CLINT,
 			"CDMA":       CDMA,
 			"PSDDR":      PSDDR,
+			"CSR":        CSR,
 			"HBM":        HBM,
 		}
 

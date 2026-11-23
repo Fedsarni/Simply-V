@@ -17,7 +17,7 @@ from general.error import Conflict_Error, Out_Of_Range_Error
 #Only one MBUS should be created
 class MBus(NonLeafBus, metaclass=SingletonABCMeta):
 
-	LEGAL_PERIPHERALS = Bus.LEGAL_PERIPHERALS + ("BRAM", "DMMEM", "PLIC", "CLINT", "CDMA")
+	LEGAL_PERIPHERALS = Bus.LEGAL_PERIPHERALS + ("BRAM", "DMMEM", "PLIC", "CLINT", "CDMA", "CSR")
 	LEGAL_BUSES = NonLeafBus.LEGAL_BUSES +  ("PBUS",)
 	LEGAL_PROTOCOLS = Bus.LEGAL_PROTOCOLS + ("AXI4",)
 
@@ -51,7 +51,7 @@ class MBus(NonLeafBus, metaclass=SingletonABCMeta):
 		# of the configuration
 		self.tree_generated: bool = False
 		self.loopback_activated: bool = False
-		self.main_clock_domain_peripherals: list[str] = ["PLIC", "BRAM", "DMMEM", "CLINT"]
+		self.main_clock_domain_peripherals: list[str] = ["PLIC", "BRAM", "DMMEM", "CLINT", "CSR"]
 
 		self._RANGE_CLOCK_DOMAINS = data_dict["RANGE_CLOCK_DOMAINS"].copy()
 

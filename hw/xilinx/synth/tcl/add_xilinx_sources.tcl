@@ -24,6 +24,7 @@ set src_file_list [ list \
     $::env(XILINX_ROOT)/rtl/rv_socket.sv                                          \
     $::env(XILINX_ROOT)/rtl/sys_master.sv                                         \
     $::env(XILINX_ROOT)/rtl/virtual_uart.sv                                       \
+    $::env(XILINX_ROOT)/rtl/simplyv_csr.sv                                        \
     $::env(XILINX_ROOT)/rtl/simplyv.sv                                            \
 ]
 

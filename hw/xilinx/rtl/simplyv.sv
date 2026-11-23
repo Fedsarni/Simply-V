@@ -165,6 +165,10 @@ module simplyv (
     // VIO Signals
     logic vio_resetn;
 
+    // Simply-V CSR
+    logic                         csr_core_rstn;
+    logic [MBUS_ADDR_WIDTH-1 : 0] csr_boot_addr;
+
     // Socket interrupts
     logic [31:0] rv_socket_interrupt_line;
 
@@ -454,8 +458,8 @@ module simplyv (
     ) rv_socket_u (
         .clk_i          ( MBUS_clk   ),
         .rst_ni         ( MBUS_rstn  ),
-        .core_resetn_i  ( vio_resetn ),
-        .bootaddr_i     ( RV_SOCKET_BOOT_ADDRESS   ),
+        .core_resetn_i  ( vio_resetn & csr_core_rstn ),
+        .bootaddr_i     ( csr_boot_addr            ),
         .irq_i          ( rv_socket_interrupt_line ),
         // Instruction AXI Port
         .rv_socket_instr_axi_awid      ( RV_SOCKET_INSTR_to_MBUS_axi_awid     ),
@@ -972,6 +976,114 @@ module simplyv (
         .s_axi_rlast    ( MBUS_to_PBUS_axi_rlast    ),
         .s_axi_rvalid   ( MBUS_to_PBUS_axi_rvalid   ),
         .s_axi_rready   ( MBUS_to_PBUS_axi_rready   )
+    );
+
+    ////////////////////////////////////////
+    // Simply-V control and status regs   //
+    ////////////////////////////////////////
+
+    // AXI-Lite bus from adapter to CSR
+    `DECLARE_AXILITE_BUS(AXILITE_to_CSR, 32, 32)
+
+    // AXI-lite converter
+    xlnx_axi4_to_axilite_d32_converter axi4_to_axilite_csr_u (
+        .aclk           ( CSR_clk     ),
+        .aresetn        ( CSR_rstn    ),
+        // AXI4 slave (from MBUS)
+        .s_axi_awid     ( MBUS_to_CSR_axi_awid           ),
+        .s_axi_awaddr   ( MBUS_to_CSR_axi_awaddr         ),
+        .s_axi_awlen    ( MBUS_to_CSR_axi_awlen          ),
+        .s_axi_awsize   ( MBUS_to_CSR_axi_awsize         ),
+        .s_axi_awburst  ( MBUS_to_CSR_axi_awburst        ),
+        .s_axi_awlock   ( MBUS_to_CSR_axi_awlock         ),
+        .s_axi_awcache  ( MBUS_to_CSR_axi_awcache        ),
+        .s_axi_awprot   ( MBUS_to_CSR_axi_awprot         ),
+        .s_axi_awregion ( MBUS_to_CSR_axi_awregion       ),
+        .s_axi_awqos    ( MBUS_to_CSR_axi_awqos          ),
+        .s_axi_awvalid  ( MBUS_to_CSR_axi_awvalid        ),
+        .s_axi_awready  ( MBUS_to_CSR_axi_awready        ),
+        .s_axi_wdata    ( MBUS_to_CSR_axi_wdata          ),
+        .s_axi_wstrb    ( MBUS_to_CSR_axi_wstrb          ),
+        .s_axi_wlast    ( MBUS_to_CSR_axi_wlast          ),
+        .s_axi_wvalid   ( MBUS_to_CSR_axi_wvalid         ),
+        .s_axi_wready   ( MBUS_to_CSR_axi_wready         ),
+        .s_axi_bid      ( MBUS_to_CSR_axi_bid            ),
+        .s_axi_bresp    ( MBUS_to_CSR_axi_bresp          ),
+        .s_axi_bvalid   ( MBUS_to_CSR_axi_bvalid         ),
+        .s_axi_bready   ( MBUS_to_CSR_axi_bready         ),
+        .s_axi_arid     ( MBUS_to_CSR_axi_arid           ),
+        .s_axi_araddr   ( MBUS_to_CSR_axi_araddr         ),
+        .s_axi_arlen    ( MBUS_to_CSR_axi_arlen          ),
+        .s_axi_arsize   ( MBUS_to_CSR_axi_arsize         ),
+        .s_axi_arburst  ( MBUS_to_CSR_axi_arburst        ),
+        .s_axi_arlock   ( MBUS_to_CSR_axi_arlock         ),
+        .s_axi_arcache  ( MBUS_to_CSR_axi_arcache        ),
+        .s_axi_arprot   ( MBUS_to_CSR_axi_arprot         ),
+        .s_axi_arregion ( MBUS_to_CSR_axi_arregion       ),
+        .s_axi_arqos    ( MBUS_to_CSR_axi_arqos          ),
+        .s_axi_arvalid  ( MBUS_to_CSR_axi_arvalid        ),
+        .s_axi_arready  ( MBUS_to_CSR_axi_arready        ),
+        .s_axi_rid      ( MBUS_to_CSR_axi_rid            ),
+        .s_axi_rdata    ( MBUS_to_CSR_axi_rdata          ),
+        .s_axi_rresp    ( MBUS_to_CSR_axi_rresp          ),
+        .s_axi_rlast    ( MBUS_to_CSR_axi_rlast          ),
+        .s_axi_rvalid   ( MBUS_to_CSR_axi_rvalid         ),
+        .s_axi_rready   ( MBUS_to_CSR_axi_rready         ),
+        // AXI4-Lite master (to CSR)
+        .m_axi_awaddr   ( AXILITE_to_CSR_axilite_awaddr  ),
+        .m_axi_awprot   ( AXILITE_to_CSR_axilite_awprot  ),
+        .m_axi_awvalid  ( AXILITE_to_CSR_axilite_awvalid ),
+        .m_axi_awready  ( AXILITE_to_CSR_axilite_awready ),
+        .m_axi_wdata    ( AXILITE_to_CSR_axilite_wdata   ),
+        .m_axi_wstrb    ( AXILITE_to_CSR_axilite_wstrb   ),
+        .m_axi_wvalid   ( AXILITE_to_CSR_axilite_wvalid  ),
+        .m_axi_wready   ( AXILITE_to_CSR_axilite_wready  ),
+        .m_axi_bresp    ( AXILITE_to_CSR_axilite_bresp   ),
+        .m_axi_bvalid   ( AXILITE_to_CSR_axilite_bvalid  ),
+        .m_axi_bready   ( AXILITE_to_CSR_axilite_bready  ),
+        .m_axi_araddr   ( AXILITE_to_CSR_axilite_araddr  ),
+        .m_axi_arprot   ( AXILITE_to_CSR_axilite_arprot  ),
+        .m_axi_arvalid  ( AXILITE_to_CSR_axilite_arvalid ),
+        .m_axi_arready  ( AXILITE_to_CSR_axilite_arready ),
+        .m_axi_rdata    ( AXILITE_to_CSR_axilite_rdata   ),
+        .m_axi_rresp    ( AXILITE_to_CSR_axilite_rresp   ),
+        .m_axi_rvalid   ( AXILITE_to_CSR_axilite_rvalid  ),
+        .m_axi_rready   ( AXILITE_to_CSR_axilite_rready  )
+    );
+
+    // CSR: core reset and boot address of the RV socket.
+    // Not connected yet: sys_rst_o (RESET ALL of the whole SoC) and core_clk_en_o (HALT, disabled).
+    simplyv_csr #(
+        .LOCAL_DATA_WIDTH ( 32                     ),
+        .LOCAL_ADDR_WIDTH ( 32                     ),
+        .BOOT_ADDR_RESET  ( RV_SOCKET_BOOT_ADDRESS ),
+        .HALT_EN          ( 1'b0                   )
+    ) simplyv_csr_u (
+        .clk_i              ( CSR_clk                        ),
+        .rst_ni             ( CSR_rstn                       ),
+        .core_rstn_o        ( csr_core_rstn                  ),
+        .core_clk_en_o      (                                ),
+        .sys_rst_o          (                                ),
+        .boot_addr_o        ( csr_boot_addr                  ),
+        .s_axilite_awaddr   ( AXILITE_to_CSR_axilite_awaddr  ),
+        .s_axilite_awprot   ( AXILITE_to_CSR_axilite_awprot  ),
+        .s_axilite_awvalid  ( AXILITE_to_CSR_axilite_awvalid ),
+        .s_axilite_awready  ( AXILITE_to_CSR_axilite_awready ),
+        .s_axilite_wdata    ( AXILITE_to_CSR_axilite_wdata   ),
+        .s_axilite_wstrb    ( AXILITE_to_CSR_axilite_wstrb   ),
+        .s_axilite_wvalid   ( AXILITE_to_CSR_axilite_wvalid  ),
+        .s_axilite_wready   ( AXILITE_to_CSR_axilite_wready  ),
+        .s_axilite_bresp    ( AXILITE_to_CSR_axilite_bresp   ),
+        .s_axilite_bvalid   ( AXILITE_to_CSR_axilite_bvalid  ),
+        .s_axilite_bready   ( AXILITE_to_CSR_axilite_bready  ),
+        .s_axilite_araddr   ( AXILITE_to_CSR_axilite_araddr  ),
+        .s_axilite_arprot   ( AXILITE_to_CSR_axilite_arprot  ),
+        .s_axilite_arvalid  ( AXILITE_to_CSR_axilite_arvalid ),
+        .s_axilite_arready  ( AXILITE_to_CSR_axilite_arready ),
+        .s_axilite_rdata    ( AXILITE_to_CSR_axilite_rdata   ),
+        .s_axilite_rresp    ( AXILITE_to_CSR_axilite_rresp   ),
+        .s_axilite_rvalid   ( AXILITE_to_CSR_axilite_rvalid  ),
+        .s_axilite_rready   ( AXILITE_to_CSR_axilite_rready  )
     );
 
     /////////////////////
