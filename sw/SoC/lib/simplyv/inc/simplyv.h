@@ -18,6 +18,11 @@
     #include "xlnx_cdma.h"
 #endif
 
+// Simply-V CSR, runtime side
+#ifdef CSR_IS_ENABLED
+    #include "simplyv_csr.h"
+#endif
+
 // TinyIO for printf() and scanf()
 #ifdef UART_IS_ENABLED
     #include "tinyIO.h"
