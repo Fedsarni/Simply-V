@@ -5,7 +5,7 @@ The program runs bare-metal on the Cortex-A9 #0 of the Zynq-7000 PS and drives S
 The CPU side is in `sw/SoC/examples/ps_csr`.
 
 The two drivers are header-only:
-- host: `src/simplyv_csr_host.h` (Cortex-A9 #0);
+- host: `sw/host/zynq/lib/simplyv_csr_host.h` (Cortex-A9 #0);
 - runtime: `sw/SoC/lib/simplyv/inc/simplyv_csr.h` (CPU of Simply-V).
 
 The test runs the CPU program twice, first from BUSY (after GDB) and then from DONE:

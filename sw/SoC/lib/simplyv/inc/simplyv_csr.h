@@ -2,7 +2,7 @@
 // Description:
 //   Runtime side of the Simply-V CSR (hw/xilinx/rtl/simplyv_csr.sv), for the CPU of Simply-V.
 //   The runtime reads the data pointers written by the host and reports the end of the job.
-//   The host side is in sw/host/zynq/ps_csr/src/simplyv_csr_host.h.
+//   The host side is in sw/host/zynq/lib/simplyv_csr_host.h.
 
 #ifndef __SIMPLYV_CSR_H__
 #define __SIMPLYV_CSR_H__
