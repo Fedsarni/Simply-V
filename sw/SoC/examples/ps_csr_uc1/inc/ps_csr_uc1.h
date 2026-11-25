@@ -3,7 +3,7 @@
 //   Data shared between the Zynq-7000 PS and the Simply-V CPU in the CSR test UC1, in BRAM_0.
 //   Used by sw/SoC/examples/ps_csr_uc1 (CPU side) and sw/host/zynq/ps_csr_uc1 (PS side).
 //   The CPU program is at the boot address (start of BRAM_0), the data after it at
-//   _peripheral_BRAM_0_start + PS_CSR_DATA_OFFSET, as in ps_csr.
+//   _peripheral_BRAM_0_start + PS_CSR_DATA_OFFSET, as in ps_csr_uc2.
 
 #ifndef PS_CSR_UC1_H
 #define PS_CSR_UC1_H

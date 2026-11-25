@@ -1,32 +1,26 @@
 // Author: Federica Sarnataro
 // Description:
-//   CPU side of the CSR test (Zynq profile).
+//   CPU side of the CSR test UC2 (Zynq profile): this program is copied once by the PS at the
+//   boot address, then started with RUN on new input data each time.
 //   1. Read PTR_IN and PTR_OUT from the CSR
 //   2. Read the input value, write its bitwise NOT at PTR_OUT
 //   3. Write DONE in RT_STATUS, then stop in WFI
-//   The PS side is sw/host/zynq/ps_csr.
+//   The PS side is sw/host/zynq/ps_csr_uc2.
 
 #include "simplyv.h"
 #include <stdint.h>
-#include "ps_csr.h"
+#include "ps_csr_uc2.h"
 
 int main()
 {
     // Initialize HAL
     simplyv_init();
 
-    printf("[CPU] Start\n\r");
+    printf("[CPU] Start (UC2)\n\r");
 
     uintptr_t ptr_in  = csr_get_ptr_in();
     uintptr_t ptr_out = csr_get_ptr_out();
     printf("[CPU] PTR_IN 0x%08x, PTR_OUT 0x%08x\n\r", (uint32_t)ptr_in, (uint32_t)ptr_out);
-
-    // First start after loading with GDB: the PS has not written the pointers yet.
-    // Stop in WFI without writing to memory, the PS will send RESET CPU and RUN
-    if ( (ptr_in == 0) || (ptr_out == 0) ) {
-        printf("[CPU] No pointers from the PS, waiting\n\r");
-        return SIMPLYV_OK;
-    }
 
     volatile uint32_t * in  = (volatile uint32_t *)ptr_in;
     volatile uint32_t * out = (volatile uint32_t *)ptr_out;
