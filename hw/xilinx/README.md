@@ -110,3 +110,4 @@ To add probe on a net, you should mark it as `MARK_DEBUG=1` or `TRUE`, in one of
 
 ## Running Software
 To load and run software on a programmed device, check the [related documentation](doc/PROGRAM_LOADING.md).
+To control Simply-V from a host (e.g. the Zynq-7000 PS) through the CSR, check the [CSR documentation](doc/CSR.md).
