@@ -1,5 +1,6 @@
 # Author: Federica Sarnataro
-# Description: Run the simplyv_csr testbenches in Vivado xsim, with the AXI VIP as AXI4-Lite master.
+# Description: Run the simplyv_csr testbenches in Vivado xsim, with the AXI VIP as AXI4-Lite master,
+#              and the mem_reset_guard testbench (RESET CPU with the core on the bus).
 # Usage:
 #   vivado -mode batch -source <abs path>/hw/xilinx/sim/tb/run_csr_tb.tcl                        (all the testbenches)
 #   vivado -mode batch -source <abs path>/hw/xilinx/sim/tb/run_csr_tb.tcl -tclargs tb_csr_uc1     (only some)
@@ -21,6 +22,7 @@ create_project csr_tb ${tb_dir}/build -force -part ${part}
 
 # DUT
 add_files -norecurse ${xilinx_root}/rtl/simplyv_csr.sv
+add_files -norecurse ${xilinx_root}/rtl/mem_reset_guard.sv
 set_property include_dirs [list ${xilinx_root}/rtl/headers ${tb_dir}] [get_filesets sources_1]
 set_property include_dirs [list ${xilinx_root}/rtl/headers ${tb_dir}] [get_filesets sim_1]
 

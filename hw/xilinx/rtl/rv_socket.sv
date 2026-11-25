@@ -67,9 +67,13 @@ module rv_socket # (
     //         |___/                    //
     //////////////////////////////////////
 
-    // Core reset
+    // Core reset requested: system reset or core-only reset (RESET CPU of the CSR)
+    logic core_resetn_request;
+    assign core_resetn_request = rst_ni & core_resetn_i;
+
+    // Core reset applied to the core: for the cores with MEM ports it goes through
+    // mem_reset_guard, so that it is released only when the MEM-to-AXI bridges are idle
     logic core_resetn_internal;
-    assign core_resetn_internal = rst_ni & core_resetn_i;
 
     // Declare common MEM ports
     `DECLARE_MEM_BUS(core_instr, LOCAL_DATA_WIDTH, LOCAL_ADDR_WIDTH);
@@ -1395,6 +1399,77 @@ module rv_socket # (
     // - CVA6+Ara already has two AXI interfaces
     if ( !( CORE_SELECTOR inside {CORE_MICROBLAZEV_RV32, CORE_DUAL_MICROBLAZEV_RV32, CORE_MICROBLAZEV_RV64, CORE_CV64A6, CORE_CV64A6_ARA} ) ) begin : mem_to_axi
 
+        // MEM ports between the guards and the bridges
+        `DECLARE_MEM_BUS(bridge_instr, LOCAL_DATA_WIDTH, LOCAL_ADDR_WIDTH);
+        `DECLARE_MEM_BUS(bridge_data, LOCAL_DATA_WIDTH, LOCAL_ADDR_WIDTH);
+
+        // Core reset released by each guard
+        logic guard_instr_rstn;
+        logic guard_data_rstn;
+        assign core_resetn_internal = guard_instr_rstn & guard_data_rstn;
+
+        // Guard of the instruction port, for the core-only reset
+        mem_reset_guard #(
+            .DATA_WIDTH      ( LOCAL_DATA_WIDTH ),
+            .ADDR_WIDTH      ( LOCAL_ADDR_WIDTH ),
+            .MAX_OUTSTANDING ( 1                )  // as MaxRequests of custom_axi_from_mem
+        ) mem_reset_guard_instr_u (
+            .clk_i          ( clk_i                    ),
+            .rst_ni         ( rst_ni                   ),
+            .core_rstn_i    ( core_resetn_request      ),
+            .core_rstn_o    ( guard_instr_rstn         ),
+            .core_active_i  ( core_resetn_internal     ),
+            .s_mem_req_i    ( core_instr_mem_req       ),
+            .s_mem_addr_i   ( core_instr_mem_addr      ),
+            .s_mem_we_i     ( core_instr_mem_we        ),
+            .s_mem_wdata_i  ( core_instr_mem_wdata     ),
+            .s_mem_be_i     ( core_instr_mem_be        ),
+            .s_mem_gnt_o    ( core_instr_mem_gnt       ),
+            .s_mem_valid_o  ( core_instr_mem_valid     ),
+            .s_mem_rdata_o  ( core_instr_mem_rdata     ),
+            .s_mem_error_o  ( core_instr_mem_error     ),
+            .m_mem_req_o    ( bridge_instr_mem_req   ),
+            .m_mem_addr_o   ( bridge_instr_mem_addr  ),
+            .m_mem_we_o     ( bridge_instr_mem_we    ),
+            .m_mem_wdata_o  ( bridge_instr_mem_wdata ),
+            .m_mem_be_o     ( bridge_instr_mem_be    ),
+            .m_mem_gnt_i    ( bridge_instr_mem_gnt   ),
+            .m_mem_valid_i  ( bridge_instr_mem_valid ),
+            .m_mem_rdata_i  ( bridge_instr_mem_rdata ),
+            .m_mem_error_i  ( bridge_instr_mem_error )
+        );
+
+        // Guard of the data port, for the core-only reset
+        mem_reset_guard #(
+            .DATA_WIDTH      ( LOCAL_DATA_WIDTH ),
+            .ADDR_WIDTH      ( LOCAL_ADDR_WIDTH ),
+            .MAX_OUTSTANDING ( 1                )  // as MaxRequests of custom_axi_from_mem
+        ) mem_reset_guard_data_u (
+            .clk_i          ( clk_i                    ),
+            .rst_ni         ( rst_ni                   ),
+            .core_rstn_i    ( core_resetn_request      ),
+            .core_rstn_o    ( guard_data_rstn          ),
+            .core_active_i  ( core_resetn_internal     ),
+            .s_mem_req_i    ( core_data_mem_req        ),
+            .s_mem_addr_i   ( core_data_mem_addr       ),
+            .s_mem_we_i     ( core_data_mem_we         ),
+            .s_mem_wdata_i  ( core_data_mem_wdata      ),
+            .s_mem_be_i     ( core_data_mem_be         ),
+            .s_mem_gnt_o    ( core_data_mem_gnt        ),
+            .s_mem_valid_o  ( core_data_mem_valid      ),
+            .s_mem_rdata_o  ( core_data_mem_rdata      ),
+            .s_mem_error_o  ( core_data_mem_error      ),
+            .m_mem_req_o    ( bridge_data_mem_req    ),
+            .m_mem_addr_o   ( bridge_data_mem_addr   ),
+            .m_mem_we_o     ( bridge_data_mem_we     ),
+            .m_mem_wdata_o  ( bridge_data_mem_wdata  ),
+            .m_mem_be_o     ( bridge_data_mem_be     ),
+            .m_mem_gnt_i    ( bridge_data_mem_gnt    ),
+            .m_mem_valid_i  ( bridge_data_mem_valid  ),
+            .m_mem_rdata_i  ( bridge_data_mem_rdata  ),
+            .m_mem_error_i  ( bridge_data_mem_error  )
+        );
+
         // Convert instructions socket (AXI) to core (MEM)
         custom_axi_from_mem axi_from_mem_instr_u (
             // AXI side
@@ -1440,15 +1515,15 @@ module rv_socket # (
             // MEM side
             .clk_i          ( clk_i                          ),
             .rst_ni         ( rst_ni                         ),
-            .s_mem_req      ( core_instr_mem_req             ),
-            .s_mem_addr     ( core_instr_mem_addr            ),
-            .s_mem_we       ( core_instr_mem_we              ),  // RO Interface
-            .s_mem_wdata    ( core_instr_mem_wdata           ),  // RO Interface
-            .s_mem_be       ( core_instr_mem_be              ),  // RO Interface
-            .s_mem_gnt      ( core_instr_mem_gnt             ),
-            .s_mem_valid    ( core_instr_mem_valid           ),
-            .s_mem_rdata    ( core_instr_mem_rdata           ),
-            .s_mem_error    ( core_instr_mem_error           )
+            .s_mem_req      ( bridge_instr_mem_req           ),
+            .s_mem_addr     ( bridge_instr_mem_addr          ),
+            .s_mem_we       ( bridge_instr_mem_we            ),  // RO Interface
+            .s_mem_wdata    ( bridge_instr_mem_wdata         ),  // RO Interface
+            .s_mem_be       ( bridge_instr_mem_be            ),  // RO Interface
+            .s_mem_gnt      ( bridge_instr_mem_gnt           ),
+            .s_mem_valid    ( bridge_instr_mem_valid         ),
+            .s_mem_rdata    ( bridge_instr_mem_rdata         ),
+            .s_mem_error    ( bridge_instr_mem_error         )
         );
 
         // Convert instructions socket (AXI) to core (MEM)
@@ -1496,17 +1571,21 @@ module rv_socket # (
             // MEM side
             .clk_i          ( clk_i                         ),
             .rst_ni         ( rst_ni                        ),
-            .s_mem_req      ( core_data_mem_req             ),
-            .s_mem_addr     ( core_data_mem_addr            ),
-            .s_mem_we       ( core_data_mem_we              ),
-            .s_mem_wdata    ( core_data_mem_wdata           ),
-            .s_mem_be       ( core_data_mem_be              ),
-            .s_mem_gnt      ( core_data_mem_gnt             ),
-            .s_mem_valid    ( core_data_mem_valid           ),
-            .s_mem_rdata    ( core_data_mem_rdata           ),
-            .s_mem_error    ( core_data_mem_error           )
+            .s_mem_req      ( bridge_data_mem_req           ),
+            .s_mem_addr     ( bridge_data_mem_addr          ),
+            .s_mem_we       ( bridge_data_mem_we            ),
+            .s_mem_wdata    ( bridge_data_mem_wdata         ),
+            .s_mem_be       ( bridge_data_mem_be            ),
+            .s_mem_gnt      ( bridge_data_mem_gnt           ),
+            .s_mem_valid    ( bridge_data_mem_valid         ),
+            .s_mem_rdata    ( bridge_data_mem_rdata         ),
+            .s_mem_error    ( bridge_data_mem_error         )
         );
     end : mem_to_axi
+    else begin : no_mem_to_axi
+        // No MEM ports: the core reset is applied as requested
+        assign core_resetn_internal = core_resetn_request;
+    end : no_mem_to_axi
 
     ///////////////////////////////////
     //    ___  ___ ___ _   _  ___    //

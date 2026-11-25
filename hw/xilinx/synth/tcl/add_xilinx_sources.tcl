@@ -21,6 +21,7 @@ set src_file_list [ list \
     $::env(XILINX_ROOT)/rtl/wrappers/uart_wrapper.sv                              \
     $::env(XILINX_ROOT)/rtl/hbus.sv                                               \
     $::env(XILINX_ROOT)/rtl/pbus.sv                                               \
+    $::env(XILINX_ROOT)/rtl/mem_reset_guard.sv                                    \
     $::env(XILINX_ROOT)/rtl/rv_socket.sv                                          \
     $::env(XILINX_ROOT)/rtl/sys_master.sv                                         \
     $::env(XILINX_ROOT)/rtl/virtual_uart.sv                                       \
