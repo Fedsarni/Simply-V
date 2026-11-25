@@ -1,12 +1,12 @@
 // Author: Federica Sarnataro
 // Description:
-//   Data shared between the Zynq-7000 PS and the Simply-V CPU in the CSR test UC4, in BRAM_0.
-//   Used by sw/SoC/examples/ps_csr_uc4 (CPU side) and sw/host/zynq/ps_csr_uc4 (PS side).
+//   Data shared between the Zynq-7000 PS and the Simply-V CPU in the CSR test UC5, in BRAM_0.
+//   Used by sw/SoC/examples/ps_csr_uc5 (CPU side) and sw/host/zynq/ps_csr_uc5 (PS side).
 //   The CPU program is at the boot address (start of BRAM_0), the data after it at
 //   _peripheral_BRAM_0_start + PS_CSR_DATA_OFFSET, as in ps_csr_uc1.
 
-#ifndef PS_CSR_UC4_H
-#define PS_CSR_UC4_H
+#ifndef PS_CSR_UC5_H
+#define PS_CSR_UC5_H
 
 // Offset of the data from the base of BRAM_0: the CPU program must end before it
 #define PS_CSR_DATA_OFFSET (0x8000u)
@@ -19,6 +19,6 @@ enum {
 };
 
 // Value written by the PS
-#define PS_CSR_TEST_VALUE (0xCAFE0127u)
+#define PS_CSR_TEST_VALUE (0xCAFE0128u)
 
-#endif // PS_CSR_UC4_H
+#endif // PS_CSR_UC5_H

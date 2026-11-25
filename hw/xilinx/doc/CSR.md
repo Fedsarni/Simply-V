@@ -32,14 +32,14 @@ The host driver does not write STATUS and does not know RT_STATUS: only the comm
 
 ## Commands and states
 
-| Command | Code |
-| --- | --- |
-| RESET CPU | 1 |
-| LOAD PROGRAM | 2 |
-| LOAD INPUT DATA | 3 |
-| RUN | 4 |
-| RESET ALL | 5 |
-| HALT | 6 |
+| Command | Code | Effect |
+| --- | --- | --- |
+| RESET CPU | 1 | Stops the CPU (held in reset), to load a new program or new data: IDLE |
+| LOAD PROGRAM | 2 | Tells that the host is writing the program and BOOT_ADDR |
+| LOAD INPUT DATA | 3 | Tells that the host is writing the input data, PTR_IN and PTR_OUT |
+| RUN | 4 | Starts the CPU from BOOT_ADDR: BUSY |
+| RESET ALL | 5 | As the power-on: registers to their default, BUSY |
+| HALT (OPTIONAL) | 6 | Suspends the CPU, RUN resumes it |
 
 | State | Code |
 | --- | --- |
@@ -113,10 +113,13 @@ The pointers are always addresses seen by the CPU: the host adds its own base (f
 | UC1: load and run a program | RESET CPU, LOAD PROGRAM (copy the `.bin` at BOOT_ADDR), LOAD INPUT DATA, RUN, wait DONE | `sw/host/zynq/ps_csr_uc1` |
 | UC2: same program, new data | RESET CPU, LOAD INPUT DATA, RUN, wait DONE | `sw/host/zynq/ps_csr_uc2` |
 | UC3: stuck program | wait ends with `CSR_TIMEOUT` in BUSY, then RESET CPU | `sw/host/zynq/ps_csr_uc3` |
-| UC4: illegal command and recovery | illegal command (ERROR), RESET ALL (BUSY), then as UC1 | `sw/host/zynq/ps_csr_uc4` |
+| UC4: illegal command | a command in the wrong state (LOAD PROGRAM in BUSY): ERROR | `sw/host/zynq/ps_csr_uc4` |
+| UC5: recovery from ERROR | from ERROR: RESET CPU is ignored, RESET ALL (BUSY), then as UC1 | `sw/host/zynq/ps_csr_uc5` |
 
 The program is loaded as its memory image (`.bin`, from `make -C sw/SoC/examples/<program>`), not as the ELF: `build_ps_app.py` turns it into `cpu_program.h` for the PS program.
 Each test has a README with the build, the run and the expected output.
+`ci/hil_csr_suite_wsl.sh` runs all of them in a row on the Pynq-Z1 and prints PASS or FAIL for each one.
+These are functional tests: on the board one illegal command is enough, all the combinations of state and command are tested in simulation (`tb_csr_fsm`).
 
 ## Simulation
 

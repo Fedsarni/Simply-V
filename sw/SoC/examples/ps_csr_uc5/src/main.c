@@ -1,22 +1,22 @@
 // Author: Federica Sarnataro
 // Description:
-//   CPU side of the CSR test UC4 (Zynq profile): after the recovery from ERROR,
+//   CPU side of the CSR test UC5 (Zynq profile): after the recovery from ERROR,
 //   this program is copied by the PS at the boot address and started with RUN.
 //   1. Read PTR_IN and PTR_OUT from the CSR
 //   2. Read the input value, write its bitwise NOT at PTR_OUT
 //   3. Write DONE in RT_STATUS, then stop in WFI
-//   The PS side is sw/host/zynq/ps_csr_uc4.
+//   The PS side is sw/host/zynq/ps_csr_uc5.
 
 #include "simplyv.h"
 #include <stdint.h>
-#include "ps_csr_uc4.h"
+#include "ps_csr_uc5.h"
 
 int main()
 {
     // Initialize HAL
     simplyv_init();
 
-    printf("[CPU] Start (UC4: after RESET ALL)\n\r");
+    printf("[CPU] Start (UC5: after RESET ALL)\n\r");
 
     uintptr_t ptr_in  = csr_get_ptr_in();
     uintptr_t ptr_out = csr_get_ptr_out();
